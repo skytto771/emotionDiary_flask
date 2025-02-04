@@ -76,7 +76,7 @@ def generate_unique_diary_id(length=12):
 def generate_token(user_id):
     token = jwt.encode({
         'userID': user_id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)  # Token有效期1小时
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)  # Token有效期1小时
     }, app.config['SECRET_KEY'], algorithm='HS256')
     return token
 
@@ -91,7 +91,7 @@ def token_required(f):
             token = request.headers['Authorization']
 
         if not token:
-            return jsonify({'message': '缺少 token!'}), 403
+            return jsonify({'code': 'NOT_LOGIN', 'message': '未提供认证信息'}), 401
 
         try:
             # 解码 token
@@ -101,7 +101,7 @@ def token_required(f):
             # 可以根据 userID 查询用户信息
         except Exception as e:
             print(e)
-            return jsonify({'message': '无效的 token!'}), 403
+            return jsonify({"code": "NOT_LOGIN", 'message': '无效的 token!'}), 403
 
         return f(currentUserId, *args, **kwargs)  # 将当前用户ID传递给被装饰的函数
     return decorated_function
