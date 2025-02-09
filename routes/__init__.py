@@ -5,6 +5,7 @@ from .reminderRoutes import reminder_bp
 from .suggestionRoutes import suggestion_bp
 from .communityPostRoutes import community_post_bp
 from .commentRoutes import comment_bp
+from .fileRoutes import file_bp
 
 def register_routes(app):
     app.register_blueprint(user_bp, url_prefix='/users')
@@ -14,3 +15,4 @@ def register_routes(app):
     app.register_blueprint(suggestion_bp, url_prefix='/suggestions')
     app.register_blueprint(community_post_bp, url_prefix='/community_posts')
     app.register_blueprint(comment_bp, url_prefix='/comments')
+    app.register_blueprint(file_bp, url_prefix='/files')

@@ -102,8 +102,12 @@ def forgot_password():
 def check_login(currentUserId):
     try:
         if currentUserId:
+            user = User.query.filter_by(userID=currentUserId).first()
             # 可根据需要返回更多用户信息
-            return jsonify({'code': 'SUCCESS', 'message': '用户已登录', 'userID': currentUserId}), 200
+            return jsonify({'code': 'SUCCESS', 'message': '用户已登录', 'data':{
+                'userID': currentUserId,
+                'username': user.username,
+            }}), 200
 
         return jsonify({'code': 'NOT_LOGIN', 'message': '无效的token'}), 401
     except Exception as e:

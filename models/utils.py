@@ -1,9 +1,11 @@
 import uuid
 from flask import jsonify, request
 from app import db,app
+from models.fileSlice import FileSlice
 from models.user import User
 from models.diary import Diary
 from models.diaryEmotionTagLink import DiaryEmotionTagLink
+from models.files import File
 import jwt
 import datetime
 from functools import wraps
@@ -31,13 +33,6 @@ def generate_unique_user_id(length=12):
 
 
 def generate_unique_linkID(length=12):
-    """
-    生成一个唯一的userID，通过截取UUID的一部分。
-    如果生成的ID已存在，则重新生成，直到找到一个唯一的ID为止。
-
-    :param length: 生成ID的长度，默认为12
-    :return: 一个唯一的userID字符串
-    """
     while True:
         # 生成一个UUID，并去掉连字符
         uuid_str = uuid.uuid4().hex
@@ -52,13 +47,6 @@ def generate_unique_linkID(length=12):
 
 
 def generate_unique_diary_id(length=12):
-    """
-    生成一个唯一的userID，通过截取UUID的一部分。
-    如果生成的ID已存在，则重新生成，直到找到一个唯一的ID为止。
-
-    :param length: 生成ID的长度，默认为12
-    :return: 一个唯一的userID字符串
-    """
     while True:
         # 生成一个UUID，并去掉连字符
         uuid_str = uuid.uuid4().hex
@@ -70,6 +58,32 @@ def generate_unique_diary_id(length=12):
         if not existing_user and not existing_diary:
             # 如果不存在，则返回该userID
             return diary_id
+        # 如果存在，则继续循环生成新的ID
+
+def generate_unique_file_id(length=12):
+    while True:
+        # 生成一个UUID，并去掉连字符
+        uuid_str = uuid.uuid4().hex
+        # 截取指定长度的字符
+        file_id = uuid_str[:length]
+        # 检查数据库中是否存在该userID
+        existing_file = File.query.filter_by(fileID=file_id).first()
+        if not existing_file:
+            # 如果不存在，则返回该userID
+            return file_id
+        # 如果存在，则继续循环生成新的ID
+
+def generate_unique_fileSlice_id(length=12):
+    while True:
+        # 生成一个UUID，并去掉连字符
+        uuid_str = uuid.uuid4().hex
+        # 截取指定长度的字符
+        slice_id = uuid_str[:length]
+        # 检查数据库中是否存在该userID
+        existing_file = FileSlice.query.filter_by(sliceID=slice_id).first()
+        if not existing_file:
+            # 如果不存在，则返回该userID
+            return slice_id
         # 如果存在，则继续循环生成新的ID
 
 
@@ -92,7 +106,6 @@ def token_required(f):
 
         if not token:
             return jsonify({'code': 'NOT_LOGIN', 'message': '未提供认证信息'}), 401
-
         try:
             # 解码 token
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])

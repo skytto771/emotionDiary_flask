@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify
+from sqlalchemy import desc
+
 from models.diary import Diary
 from models.diaryEmotionTagLink import DiaryEmotionTagLink
 from models.emotionTag import EmotionTag
@@ -74,7 +76,7 @@ def get_diary(currentUserId):
         query = query.filter(Diary.title.like(f'%{diaryTitle}%'))
 
     # 执行查询并获取结果
-    diaries = query.all()
+    diaries = query.order_by(desc(Diary.createdDate)).all()
     diary_list = []
     for diary in diaries:
         DELink = DiaryEmotionTagLink.query.filter_by(diaryID=diary.diaryID).first()
@@ -114,13 +116,14 @@ def add_or_update_diary(currentUserId):
     title = data.get('title')
     content = data.get('content')
     content_html = data.get('content_html')
+    diaryID = data.get('diaryID')
 
     # 参数校验
     if not title or not content:
         return jsonify({'code': 'PARAM_ERROR', 'message': '参数错误'}), 403
 
     curDate = datetime.now().strftime('%Y-%m-%d')
-    diary = Diary.query.filter_by(createdDate=curDate, userID=currentUserId).first()
+    diary = Diary.query.filter_by(createdDate=curDate, userID=currentUserId, diaryID=diaryID).first()
 
     try:
         if diary:
@@ -138,7 +141,7 @@ def add_or_update_diary(currentUserId):
             diary.content_html = content_html.encode('utf-8').decode('utf-8')
 
             db.session.commit()
-            return jsonify({'code': 'SUCCESS', 'message': '更新成功'}), 200
+            return jsonify({'code': 'SUCCESS', 'message': '更新成功', 'data': {'diaryID': diaryID}}), 200
         else:
             # 如果今天没有日记，则添加新的日记
             diary_id = generate_unique_diary_id()
@@ -162,7 +165,7 @@ def add_or_update_diary(currentUserId):
             db.session.add(new_diary)
             db.session.add(new_link)
             db.session.commit()
-            return jsonify({'code': 'SUCCESS', 'message': '添加成功'}), 201
+            return jsonify({'code': 'SUCCESS', 'message': '添加成功', 'data': {'diaryID':diary_id}}), 201
 
     except Exception as e:
         db.session.rollback()

@@ -1,5 +1,6 @@
 import os
 
+
 class Config:
     SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:lzdxf20020521@localhost/emotionDB'
     # 关闭数据库修改跟踪操作 【提高性能】
@@ -16,4 +17,3 @@ class Config:
     MAIL_USERNAME = '235123797@qq.com'  # 你的邮箱用户名
     MAIL_PASSWORD = 'xnymntsplcbjcadh'  # 你的邮箱密码或应用专用密码
     MAIL_DEFAULT_SENDER = '235123797@qq.com'  # 默认发件人地址
-
