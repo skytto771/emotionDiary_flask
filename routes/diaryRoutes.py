@@ -117,13 +117,18 @@ def add_or_update_diary(currentUserId):
     content = data.get('content')
     content_html = data.get('content_html')
     diaryID = data.get('diaryID')
+    date = data.get('date')
 
     # 参数校验
     if not title or not content:
         return jsonify({'code': 'PARAM_ERROR', 'message': '参数错误'}), 403
 
-    curDate = datetime.now().strftime('%Y-%m-%d')
-    diary = Diary.query.filter_by(createdDate=curDate, userID=currentUserId, diaryID=diaryID).first()
+    submitDate = datetime.strptime(date, '%Y-%m-%d')
+    curDate = datetime.now()
+    print(submitDate, curDate, 13214894653)
+    if submitDate > curDate:
+        return jsonify({'code': 'PARAM_ERROR', 'message': '日期错误'}), 403
+    diary = Diary.query.filter_by(createdDate=submitDate, userID=currentUserId, diaryID=diaryID).first()
 
     try:
         if diary:
@@ -153,7 +158,7 @@ def add_or_update_diary(currentUserId):
                 title=title,
                 content=content,
                 content_html=content_html,
-                createdDate=curDate,
+                createdDate=submitDate,
             )
 
             new_link = DiaryEmotionTagLink(

@@ -5,7 +5,10 @@ from flask import Blueprint, request, jsonify, make_response, send_file
 from app import db
 from models.fileSlice import FileSlice
 from models.utils import token_required, generate_unique_file_id, generate_unique_fileSlice_id
-from models.files import File  # 假设你的File模型在models/file.py中
+from models.files import File
+from io import BytesIO
+from werkzeug.utils import secure_filename
+import urllib.parse
 
 file_bp = Blueprint('file', __name__)
 
@@ -104,7 +107,9 @@ def upload_large_file(currentUserId):
 
     try:
         # 读取切片内容
+        print(1231313)
         slice_content = file.read()
+        print('asdasd')
 
         # 存储切片信息到数据库
         new_slice = FileSlice(
@@ -115,36 +120,17 @@ def upload_large_file(currentUserId):
             sliceSize=int(slice_size)
         )
         db.session.add(new_slice)
-
-        # 临时文件操作
-        temp_file_path = os.path.join(tempfile.gettempdir(), f"{file_id}.tmp")
-
-        with open(temp_file_path, 'ab') as f:  # 以追加模式打开临时文件
-            f.write(slice_content)
-
-        # 合并当前切片到文件（不再直接更新数据库中的大块内容）
-        existing_file = File.query.filter_by(fileID=file_id).first()
-        if existing_file is None:
-            # 如果文件不存在，创建新的文件记录
-            existing_file = File(
-                fileID=file_id,
-                fileSize=int(slice_size)  # 初始大小设置为切片大小
-            )
-            db.session.add(existing_file)
-
-        # 更新文件大小
-        existing_file.fileSize += int(slice_size)
-
         db.session.commit()  # 提交切片和文件信息
 
         return jsonify({'code': 'SUCCESS', 'data': {
             'sliceID': slice_id,
             'fileID': file_id,
-            'merged': False,  # 这里标记为 False，因为文件还没有完全合并
         }}), 201
 
     except Exception as e:
         db.session.rollback()
+        File.query.filter_by(fileID=file_id).delete()
+        db.session.commit()
         print(f'发生了错误: {str(e)}')
         return jsonify({'code': 'EXCEPTION', 'message': '未知错误'}), 500
 
@@ -205,19 +191,23 @@ def get_file_or_slices(file_id):
 
         # 查找与文件ID关联的切片
         slices = FileSlice.query.filter_by(fileID=file_id).order_by(FileSlice.sliceIndex).all()
-
+    
         # 如果没有切片，则直接返回文件内容
         if not slices:
+            # 直接返回文件内容
+            mime_type = file.fileType
+            filename = file.fileName
+            safe_filename = secure_filename(filename)  # 确保文件名安全
+
             response = make_response(file.fileContent)
-            response.headers['Content-Type'] = file.fileType
-            response.headers['Content-Disposition'] = f'inline; filename={file.fileName}'
+            response.headers['Content-Type'] = mime_type
+            response.headers['Content-Disposition'] = f'inline; filename="{safe_filename}"'
             return response
 
         # 如果有切片，合并切片内容
         file_content = b''.join(slice.sliceContent for slice in slices)
 
         # 创建一个临时文件并写入合并后的内容
-        from io import BytesIO
         temp_file = BytesIO(file_content)
 
         # 设置文件名和 MIME 类型

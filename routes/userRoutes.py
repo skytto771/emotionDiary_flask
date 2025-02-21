@@ -104,7 +104,7 @@ def check_login(currentUserId):
         if currentUserId:
             user = User.query.filter_by(userID=currentUserId).first()
             # 可根据需要返回更多用户信息
-            return jsonify({'code': 'SUCCESS', 'message': '用户已登录', 'data':{
+            return jsonify({'code': 'SUCCESS', 'message': '用户已登录', 'data': {
                 'userID': currentUserId,
                 'username': user.username,
             }}), 200
@@ -112,4 +112,21 @@ def check_login(currentUserId):
         return jsonify({'code': 'NOT_LOGIN', 'message': '无效的token'}), 401
     except Exception as e:
         print(f'检查登录状态时发生错误: {str(e)}')
+        return jsonify({'code': 'EXCEPTION', 'message': '未知错误'}), 500
+
+
+@user_bp.route('/getUserInfo', methods=['GET'])
+@token_required
+def getUserInfo(currentUserId):
+    try:
+        user = User.query.filter_by(userID=currentUserId).first()
+        # 可根据需要返回更多用户信息
+        return jsonify({'code': 'SUCCESS', 'data': {
+            'userID': currentUserId,
+            'username': user.username,
+            'email': user.email,
+        }}), 200
+
+    except Exception as e:
+        print(f'发生错误: {str(e)}')
         return jsonify({'code': 'EXCEPTION', 'message': '未知错误'}), 500
