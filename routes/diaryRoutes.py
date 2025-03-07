@@ -29,51 +29,33 @@ def diaryLinkToDict(link):
         'tagID': link.linkID,
     }
 
-
-@diary_bp.route('/getDiaries', methods=['POST'])
+# 日历查询
+@diary_bp.route('/getDiaryCalendar', methods=['POST'])
 @token_required
-def get_diary(currentUserId):
+def get_diary_calendar(currentUserId):
     data = request.get_json()
 
     # 获取请求参数
-    startTime = data.get('startTime')
-    endTime = data.get('endTime')
-    diaryTitle = data.get('diaryTitle')
+    month = data.get('month')  # 期望格式为 'YYYY-MM'
 
-    # 处理日期范围
-    try:
-        if startTime:
-            start_datetime = datetime.strptime(startTime, "%Y-%m-%d %H:%M:%S")  # 可以根据需要调整格式
-        else:
-            start_datetime = None
-
-        if endTime:
-            end_datetime = datetime.strptime(endTime, "%Y-%m-%d %H:%M:%S")  # 可以根据需要调整格式
-        else:
-            end_datetime = None
-    except ValueError:
-        return jsonify({'code': 'PARAM_ERROR', 'message': '时间格式错误'}), 400
-
-    # 如果没有提供日期，则默认设定为当前月份的开始和结束时间
-    if not start_datetime and not end_datetime:
+    # 设定开始结束时间
+    if month:
+        year, month = map(int, month.split('-'))
+        startTime = datetime(year, month, 1)
+        # 获取下个月的第一天，并将日期向前推一天以得到当前月份的最后一天
+        endTime = (startTime.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    else:
         today = datetime.now()
-        start_datetime = datetime(today.year, today.month, 1)
-        end_datetime = (start_datetime + timedelta(days=31)).replace(day=1)  # 下个月的第一天
+        startTime = datetime(today.year, today.month, 1)
+        endTime = (startTime + timedelta(days=31)).replace(day=1) - timedelta(days=1)
 
     # 查询日记逻辑，筛选出在指定时间范围内的日记
     diary = Diary.query.filter(Diary.userID == currentUserId)
     query = diary
 
     # 根据日期范围过滤
-    if start_datetime:
-        query = query.filter(Diary.createdDate >= start_datetime)
-
-    if end_datetime:
-        query = query.filter(Diary.createdDate < end_datetime)  # 注意这里用小于下个月的第一天
-
-    # 根据标题过滤
-    if diaryTitle:
-        query = query.filter(Diary.title.like(f'%{diaryTitle}%'))
+    query = query.filter(Diary.createdDate >= startTime)
+    query = query.filter(Diary.createdDate <= endTime)
 
     # 执行查询并获取结果
     diaries = query.order_by(desc(Diary.createdDate)).all()
@@ -83,11 +65,59 @@ def get_diary(currentUserId):
         tag = EmotionTag.query.filter_by(tagID=DELink.tagID).first()
         # 将转换后的日记添加到列表中
         diary_dict = diary_to_dict(diary)
-        diary_dict['tagName'] = tag.tagName
-        diary_dict['tagID'] = tag.tagID
+        if tag:  # 确保标签存在
+            diary_dict['tagName'] = tag.tagName
+            diary_dict['tagID'] = tag.tagID
         diary_list.append(diary_dict)
 
-    return jsonify({'code': 'SUCCESS', 'data': diary_list}), 201
+    return jsonify({'code': 'SUCCESS', 'data': diary_list}), 200
+
+# 列表查询
+@diary_bp.route('/getDiaryList', methods=['POST'])
+@token_required
+def get_diary_list(currentUserId):
+    data = request.get_json()
+
+    # 获取请求参数
+    title = data.get('title')
+    pageCur = data.get('pageCur', 1)  # 默认当前页为1
+    pageSize = data.get('pageSize', 30)  # 默认每页30条数据
+    startTime = data.get('startTime')  # 获取开始时间
+    endTime = data.get('endTime')      # 获取结束时间
+
+    # 计算偏移量
+    offset = (pageCur - 1) * pageSize
+
+    # 查询日记逻辑，筛选出指定用户的日记
+    query = Diary.query.filter(Diary.userID == currentUserId)
+
+    # 根据标题过滤
+    if title:
+        query = query.filter(Diary.title.like(f'%{title}%'))
+
+    # 根据时间范围过滤
+    if startTime:
+        query = query.filter(Diary.createdDate >= startTime)  # 开始时间
+    if endTime:
+        query = query.filter(Diary.createdDate <= endTime)    # 结束时间
+
+    # 执行查询并获取结果，添加分页
+    diaries = query.order_by(desc(Diary.createdDate)).limit(pageSize).offset(offset).all()
+    diary_list = []
+    for diary in diaries:
+        DELink = DiaryEmotionTagLink.query.filter_by(diaryID=diary.diaryID).first()
+        tag = EmotionTag.query.filter_by(tagID=DELink.tagID).first()
+        # 将转换后的日记添加到列表中
+        diary_dict = diary_to_dict(diary)
+        if tag:  # 确保当标签存在时才添加
+            diary_dict['tagName'] = tag.tagName
+            diary_dict['tagID'] = tag.tagID
+        diary_list.append(diary_dict)
+
+        # 获取总记录数
+    total_count = query.count()
+
+    return jsonify({'code': 'SUCCESS', 'total': total_count, 'data': diary_list}), 200
 
 
 @diary_bp.route('/getDiaryDetail', methods=['post'])
@@ -125,7 +155,6 @@ def add_or_update_diary(currentUserId):
 
     submitDate = datetime.strptime(date, '%Y-%m-%d')
     curDate = datetime.now()
-    print(submitDate, curDate, 13214894653)
     if submitDate > curDate:
         return jsonify({'code': 'PARAM_ERROR', 'message': '日期错误'}), 403
     diary = Diary.query.filter_by(createdDate=submitDate, userID=currentUserId, diaryID=diaryID).first()
@@ -137,8 +166,8 @@ def add_or_update_diary(currentUserId):
             today = datetime.now().date()
 
             # 检查是否为非今天的日记
-            if diary_date.date() != today:
-                return jsonify({'code': 'FORBIDDEN', 'message': '不可修改该日记'}), 403
+            if diary_date.date() > today:
+                return jsonify({'code': 'FORBIDDEN', 'message': '明天的事还没发生哦'}), 403
 
             # 更新标题和内容
             diary.title = title

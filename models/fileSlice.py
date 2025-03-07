@@ -10,5 +10,4 @@ class FileSlice(db.Model):
     sliceSize = db.Column(db.BigInteger, nullable=False)  # 切片大小，以字节为单位
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())  # 创建时间
 
-    # 定义与文件的关系（可选）
-    # file = db.relationship('File', backref='slices')  # 如果需要进行反向查询
+

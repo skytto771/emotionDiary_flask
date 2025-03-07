@@ -14,17 +14,18 @@ app.config.from_object(Config)
 db = SQLAlchemy(app)
 mail = Mail(app)
 
-from routes import user_bp, diary_bp, emotion_report_bp, file_bp
+from routes import user_bp, diary_bp, emotion_report_bp, file_bp, schedule_bp
 
 app.register_blueprint(user_bp)
 app.register_blueprint(diary_bp)
 app.register_blueprint(emotion_report_bp)
 app.register_blueprint(file_bp)
+app.register_blueprint(schedule_bp)
 
 
 # 设置定时任务
 def schedule_analysis():
-    # 添加第一个任务：每天0点执行
+    # 添加第一个分析任务：每天0点执行
     scheduler.add_job(
         lambda: requests.get('http://127.0.0.1:5000/analysisEmotion_system'),
         'cron',
@@ -32,13 +33,22 @@ def schedule_analysis():
         minute=0  # 几分执行任务
     )
 
-    # 添加第二个任务：每天12点执行
+    # 添加第二个分析任务：每天12点执行
     scheduler.add_job(
         lambda: requests.get('http://127.0.0.1:5000/analysisEmotion_system'),
         'cron',
         hour=12,  # 每天12点
         minute=0  # 几分执行任务
     )
+
+    # 添加日程检查任务：15秒一次
+    scheduler.add_job(
+        lambda: requests.get('http://127.0.0.1:5000/checkScheduleStatus'),
+        'interval',
+        seconds=15
+    )
+
+
 
 # 全局错误处理函数
 @app.errorhandler(Exception)

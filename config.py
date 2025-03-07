@@ -6,7 +6,7 @@ class Config:
     # 关闭数据库修改跟踪操作 【提高性能】
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # 开启输出底层执行sql语句
-    SQLALCHEMY_ECHO = True
+    # SQLALCHEMY_ECHO = True
 
 
     SECRET_KEY = '9821@asd3daga'

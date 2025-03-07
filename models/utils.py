@@ -4,10 +4,11 @@ from app import db,app
 from models.fileSlice import FileSlice
 from models.user import User
 from models.diary import Diary
+from models.userAvatar import UserAvatar
 from models.diaryEmotionTagLink import DiaryEmotionTagLink
 from models.files import File
 import jwt
-import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 
@@ -86,11 +87,37 @@ def generate_unique_fileSlice_id(length=12):
             return slice_id
         # 如果存在，则继续循环生成新的ID
 
+def generate_unique_avatar_id(length=12):
+    while True:
+        # 生成一个UUID，并去掉连字符
+        uuid_str = uuid.uuid4().hex
+        # 截取指定长度的字符
+        avatar_id = uuid_str[:length]
+        # 检查数据库中是否存在该userID
+        existing_file = UserAvatar.query.filter_by(avatarID=avatar_id).first()
+        if not existing_file:
+            # 如果不存在，则返回该userID
+            return avatar_id
+        # 如果存在，则继续循环生成新的ID
+
+def generate_unique_schedule_id(length=12):
+    while True:
+        # 生成一个UUID，并去掉连字符
+        uuid_str = uuid.uuid4().hex
+        # 截取指定长度的字符
+        avatar_id = uuid_str[:length]
+        # 检查数据库中是否存在该userID
+        existing_file = UserAvatar.query.filter_by(avatarID=avatar_id).first()
+        if not existing_file:
+            # 如果不存在，则返回该userID
+            return avatar_id
+        # 如果存在，则继续循环生成新的ID
+
 
 def generate_token(user_id):
     token = jwt.encode({
         'userID': user_id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)  # Token有效期1小时
+        'exp': datetime.utcnow() + timedelta(hours=24)  # Token有效期1小时
     }, app.config['SECRET_KEY'], algorithm='HS256')
     return token
 
@@ -118,3 +145,53 @@ def token_required(f):
 
         return f(currentUserId, *args, **kwargs)  # 将当前用户ID传递给被装饰的函数
     return decorated_function
+
+from datetime import datetime
+
+def normalize_datetime(input_datetime):
+    """
+    将多种时间格式统一转换为 %Y-%m-%d %H:%M:%S 格式的字符串。
+
+    支持的时间格式：
+    - 时间戳（整数或浮点数）
+    - ISO 格式字符串（如 2023-10-15T09:00:00）
+    - 常见日期时间字符串（如 2023-10-15 09:00:00 或 2023/10/15 09:00:00）
+    - 仅日期字符串（如 2023-10-15）
+
+    参数:
+    input_datetime: 输入的时间，可以是时间戳、字符串或 datetime 对象。
+
+    返回:
+    格式化后的时间字符串（%Y-%m-%d %H:%M:%S）。
+
+    异常:
+    如果无法解析输入的时间格式，抛出 ValueError。
+    """
+    if isinstance(input_datetime, (int, float)):  # 处理时间戳
+        dt = datetime.fromtimestamp(input_datetime)
+    elif isinstance(input_datetime, str):  # 处理字符串
+        # 尝试多种日期时间格式
+        formats = [
+            '%Y-%m-%d %H:%M:%S',  # 2023-10-15 09:00:00
+            '%Y/%m/%d %H:%M:%S',  # 2023/10/15 09:00:00
+            '%Y-%m-%dT%H:%M:%S',  # ISO 格式 2023-10-15T09:00:00
+            '%Y-%m-%dT%H:%M:%S.%fZ',  # ISO 格式带毫秒和时区 2025-03-03T16:00:00.000Z
+            '%Y-%m-%d %H:%M',  # 2023-10-15 09:00
+            '%Y/%m/%d %H:%M',  # 2023/10/15 09:00
+            '%Y-%m-%d',  # 2023-10-15
+            '%Y/%m/%d',  # 2023/10/15
+        ]
+        for fmt in formats:
+            try:
+                dt = datetime.strptime(input_datetime, fmt)
+                break
+            except ValueError:
+                continue
+        else:
+            raise ValueError(f"无法解析日期字符串: {input_datetime}")
+    elif isinstance(input_datetime, datetime):  # 处理 datetime 对象
+        dt = input_datetime
+    else:
+        raise ValueError("不支持的时间格式")
+    # 返回统一格式的字符串
+    return dt.strftime('%Y-%m-%d %H:%M:%S')
